@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Carpet</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<script src="../files/js/jquery-3.3.1.min.js"></script>
+	<script src="../files/js/jsjpegmeta.js"></script>
+	
+	<style>
+	#maindiv{width:1024px;margin:auto;text-align:center}
+	.container {
+	width:100%;
+	  background: #eee;
+	  position: relative;
+    }
+	.img {
+		  position: absolute;
+		  width:100%;
+}
+    .tag {
+       float: left;
+       position: absolute;
+       z-index: 1000;
+       background-color: red;
+       padding: 6px;
+    }
+	.AjaxWaiting {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    background: rgba( 255, 255, 255, .8 ) url('../Images/Site/ajax-loader.gif') 50% 50% no-repeat;
+	text-align:center;
+	
+}
+
+body.loading .AjaxWaiting {
+    overflow: hidden;
+}
+
+body.loading .AjaxWaiting {
+    display: block;
+}
+.fringepic{
+	margin-left:3px;
+	border:1px solid black;
+	background-color:#7f7f7f;
+}
+body{
+    background-image: url("../files/images/bgimg.png");
+}
+	</style>
+</head>
+<body class="" style="background-color:#d9e1f2">
+
+<div id="maindiv">
+<form id="carpetform" enctype="multipart/form-data">
+	
+		<div class="container" >
+			<div href="" id="show" style="height:0px;">
+			   <img id="myImage" src="" width="1024px" style="cursor:crosshair">
+			</div>
+		</div>
+		
+
+		
+						
+		
+						
+		<br>
+		<div>
+			<input id="ofd" type="file"/>
+		</div>
+
+		
+		<hr>
+		<div id="fringes">
+		</div>
+		<script>
+		
+			$.ajax({
+			 beforeSend: function(){
+                    $("body").addClass("loading");
+                },
+                complete: function(){
+                    $("body").removeClass("loading");
+                },
+				url: '/GetAllFringes',
+				type: 'POST',
+				success: function(r) {
+				r = JSON.parse(r)
+					for(i=0;i < r.length;i++)
+					{
+						$('#fringes').append('<img class="fringepic" src="'+r[i].content+'" data-src="'+r[i].filename+'" width="200" height="200" />')
+					}
+				},
+				error: function(error) {
+					alert('some error occured.refresh the page...')
+				}
+			});
+			
+		</script>
+		<div>
+			<input type="hidden" id="fringepath"value=""/>
+		</div>
+		<hr>
+             <input type="submit" value="show" />
+	
+	</form>
+	<hr>
+	<div>
+		<span>result:</span><br>
+		<img id="result" src="" /><br>
+	</div>
+</div>
+	<script>
+		function Validate(input) {
+            var _validFileExtensions = [".jpg", ".jpeg", ".bmp", ".tiff", ".png"];
+            var sFileName = input.value;
+            if (sFileName.length > 0) {
+                var blnValid = false;
+                for (var j = 0; j < _validFileExtensions.length; j++) {
+                    var sCurExtension = _validFileExtensions[j];
+                    if (sFileName.substr(sFileName.length - sCurExtension.length, sCurExtension.length).toLowerCase() == sCurExtension.toLowerCase()) {
+                        blnValid = true;
+                        break;
+                    }
+                }
+
+                if (!blnValid) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+		
+		function sleep(ms) {
+		  return new Promise(resolve => setTimeout(resolve, ms));
+		}
+		
+		function readURL(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                 if (Validate(input) == false) {
+                    alert('picture should be in ".jpg", ".jpeg", ".bmp", ".tiff", ".png" formats');
+                    $(input).val('')
+                }
+				else if(input.files[0].size < 0 && input.files[0].size > 20 * 1024 * 1024)
+				{
+					alert('you most upload a picture with size less than 20 mega bytes');
+                    $(input).val('')
+				}
+                else {
+					exif_rot = 0;
+					EXIF.getData($('#ofd')[0].files[0], function() {
+						console.log('Exif=', EXIF.getTag(this, "Orientation"));
+						exif_rot = EXIF.getTag(this, "Orientation")
+						});
+                    reader.onload = function (e) {
+			
+						var formData_dim = new FormData();
+						formData_dim.append('picture', $('#ofd')[0].files[0],'input.jpg');
+						formData_dim.append('exif_rot',exif_rot);
+						
+						$.ajax({
+						 beforeSend: function(){
+								$("body").addClass("loading");
+							},
+							complete: function(){
+								$("body").removeClass("loading");
+							},
+							url: '/StandardDimensions',
+							data:formData_dim,
+							contentType: false,
+							processData: false,
+							cache:false,
+							type: 'POST',
+							success: function(r) {
+								r = JSON.parse(r)
+								if(r.success == "true")
+								{
+									$('#myImage').attr('src', r.result);
+									$('#show').attr('href', r.result);	
+									$('.container').css("height",r.height);
+									$('#show').css("height",r.height);
+									$('#show').css("width",1024);
+									$("#show > div").remove()
+								}
+								else
+								{
+									alert(r.message)
+								}
+							},
+							error: function(error) {
+							alert('error!')
+							console.log(error)
+							}
+						});
+
+						
+                    };
+
+                    reader.readAsDataURL(input.files[0]);
+					img = new Image();
+					img.onload = function () {
+						$('.container').css('height',document.getElementById('myImage').clientHeight+"px")
+						$('#myImage').css('left',((1024-document.getElementById('myImage').clientWidth)/2)+"px")
+					};
+					var _URL = window.URL || window.webkitURL;
+					img.src = _URL.createObjectURL(input.files[0]);
+					$( "#clear_numbers" ).trigger( "click" );
+                }
+            }
+			
+        }
+		$(function(){
+		var miclk = 0;
+			$("body").on('click','.fringepic',function(e){
+				$(".fringepic").css("border","1px solid black");
+				$(this).css("border","4px solid green");
+				$("#fringepath").val($(this).attr("data-src"));
+			})
+			
+			document.getElementById('ofd').onchange = function () {
+			  readURL(this);
+			};
+			
+		})
+		function b64toBlob(b64Data, contentType, sliceSize) {
+        contentType = contentType || '';
+        sliceSize = sliceSize || 512;
+
+        var byteCharacters = atob(b64Data);
+        var byteArrays = [];
+
+        for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+            var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+            var byteNumbers = new Array(slice.length);
+            for (var i = 0; i < slice.length; i++) {
+                byteNumbers[i] = slice.charCodeAt(i);
+            }
+
+            var byteArray = new Uint8Array(byteNumbers);
+
+            byteArrays.push(byteArray);
+        }
+
+      var blob = new Blob(byteArrays, {type: contentType});
+      return blob;
+}
+		$(function() {
+		$('#carpetform').submit(function(e) {
+			e.preventDefault()
+			
+			dfringe = $("#fringepath").val();
+			
+			if(($('#myImage').attr('src').length == 0))
+			{
+				alert("plaese upload your carpet image");
+				return;
+			}
+			if(dfringe == "")
+			{
+				alert("please select one of fringes by click on it");
+				return;
+			}
+			picstr = $('#myImage').attr('src');
+			var block = picstr.split(";");
+			var contentType = block[0].split(":")[1];
+			var realData = block[1].split(",")[1];
+			var formData = new FormData();
+			formData.append('picture',b64toBlob(realData, contentType),'input.jpg');
+			formData.append('picture_b64',realData);
+			formData.append('fringe', dfringe);
+			$.ajax({
+			 beforeSend: function(){
+                    $("body").addClass("loading");
+                },
+                complete: function(){
+                    $("body").removeClass("loading");
+                },
+				url: '/Fringe',
+				data:formData,
+				contentType: false,
+				processData: false,
+				cache:false,
+				type: 'POST',
+				success: function(r) {
+					r = JSON.parse(r)
+					if(r.success == "true")
+					{
+						$('#result').attr('src',r.result);
+					}
+					else
+					{
+						alert(r.message)
+					}
+				},
+				error: function(error) {
+				alert('error!')
+				console.log(error)
+				}
+			});
+		});
+	});
+	</script>
+	<div class="AjaxWaiting"><span style="position:relative;top:300px;">please wait...</span></div>
+
+</body>
+</html>
